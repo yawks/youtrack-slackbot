@@ -1,0 +1,4 @@
+flask
+slack-bolt
+slack-sdk
+requests
