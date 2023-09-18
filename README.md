@@ -1,7 +1,7 @@
 # Youtrack Slack bot
 A slack bot which can query youtrack, get stats, realtime tracking, ...
 
-![Alt text](image-2.png)
+![Alt text](image-3.png)
 
 # Configuration
 
