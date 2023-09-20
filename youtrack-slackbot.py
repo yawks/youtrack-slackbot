@@ -5,10 +5,13 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt.adapter.flask import SlackRequestHandler
 from util import config
 from util.config import Config
-from util.utils import get_args, get_now_timestamp
+from util.utils import split_string, get_args, get_now_timestamp
 from youtrack.youtrack_checker import YoutrackChecker
 
 MSG_NO_QUERY_SET = "No query defined for this channel, first set one with `!set_query` command"
+
+SLACK_MAX_MESSAGE_SIZE = 10000
+SLACK_MAX_BLOCK_SIZE = 3000
 
 configuration = Config()
 
@@ -20,7 +23,7 @@ app = App(
 
 
 @app.event("message")
-def message(payload):
+def on_message(payload):
     msg = ""
     channel_id = payload.get("channel", "xxx")
     text = payload.get("text", "")
@@ -60,7 +63,7 @@ def message(payload):
             case _:
                 msg = get_help()
         configuration.save_config()
-        app.client.chat_postMessage(channel=channel_name, text=msg)
+        send_message_to_channel(channel_name, msg)
 
 
 def _enable_module(args: List[str], channel_name: str) -> str:
@@ -141,6 +144,23 @@ def _digest(channel_name: str) -> str:
     return youtrack.get_digest(channel_name)
 
 
+def send_message_to_channel(channel_name: str, message: str):
+    for chunk in split_string(message, SLACK_MAX_MESSAGE_SIZE):
+        blocks = []
+        for sub_chunk in split_string(chunk, SLACK_MAX_BLOCK_SIZE):
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": sub_chunk
+                    }
+                })
+        app.client.chat_postMessage(channel=channel_name,
+                                    text="digest",
+                                    blocks=blocks)
+
+
 def get_help():
     return """Youtrack bot commands:
  - set_query [youtrack query]: define a youtrack query for this channel. This query will be polled to check new incoming tickets.
@@ -149,14 +169,15 @@ def get_help():
  - stats [youtrack period]: display number of created tickets for given youtrack period (eg: Today, 2023-09-12 .. 2023-09-14, ...)
  - digest: display the list of issues for the query
  - enable [module: tracking|stats] [frequency: polling|daily|weekly] (optional: time)
-   eg: `!enable tracking polling`
-       `!enable stats weekly friday 16:00` (24h format)\n"
+   eg:
+       `!enable tracking polling`
+       `!enable stats weekly friday 16:00` (24h format)
 """
 
 
 if __name__ == "__main__":
     handler = SlackRequestHandler(app)
-    youtrack = YoutrackChecker(app.client, configuration)
+    youtrack = YoutrackChecker(configuration, send_message_to_channel)
     youtrack.start()
     SocketModeHandler(
         app, configuration.configuration["slack"]["app_token"]).start()

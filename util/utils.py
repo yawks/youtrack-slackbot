@@ -31,3 +31,20 @@ def get_args(command: str) -> List[str]:
 
 def get_now_timestamp() -> str:
     return datetime.now().strftime('%Y-%m-%dT%H:%M')
+
+
+def split_string(string, max_characters):
+    lines = string.splitlines()
+
+    result = []
+    current_chunk = ""
+    for line in lines:
+        if len(current_chunk) + len(line) < max_characters:
+            current_chunk += line + "\n"
+        else:
+            result.append(current_chunk)
+            current_chunk = line + "\n"
+    
+    result.append(current_chunk)
+
+    return result

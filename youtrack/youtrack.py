@@ -4,14 +4,13 @@ import requests
 
 REQUEST_TIMEOUT_SECS = 30
 
-YOUTRACK_MAX_ISSUES = 100000
-YOUTRACK_ALL_ISSUE_FIELDS = "id,idReadable,created,updated,resolved,reporter(email),updater(email),commentsCount,tags(name),customFields($type,id,projectCustomField($type,id,field($type,id,name)),value($type,name,minutes,presentation)),summary,description"
-YOUTRACK_ISSUE_ID_FIELD = "id"
-
 
 class Youtrack:
-    def __init__(self, base_url: str, authorization_header: str, api_endpoint: str):
+    def __init__(self, base_url: str, authorization_header: str, api_endpoint: str, issue_id_field: str, all_issue_fields: str, max_issues: int):
         self.base_url: str = base_url
+        self.max_issues = max_issues
+        self.all_issue_fields = all_issue_fields
+        self.issue_id_field = issue_id_field
 
         self.headers = {
             'Authorization': authorization_header
@@ -21,8 +20,8 @@ class Youtrack:
 
     def get_issues(self, query: str, only_issue_ids: bool = False) -> List[dict]:
         params = {
-            "$top": YOUTRACK_MAX_ISSUES,
-            "fields": YOUTRACK_ALL_ISSUE_FIELDS if not only_issue_ids else YOUTRACK_ISSUE_ID_FIELD
+            "$top": self.max_issues,
+            "fields": self.all_issue_fields if not only_issue_ids else self.issue_id_field
         }
         if query != "":
             params["query"] = query
@@ -31,4 +30,5 @@ class Youtrack:
                                 params=params,
                                 headers=self.headers,
                                 timeout=REQUEST_TIMEOUT_SECS)
-        return json.loads(response.content)
+        issues = json.loads(response.content)
+        return sorted(issues, key=lambda x: x["created"])

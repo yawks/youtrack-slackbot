@@ -3,7 +3,6 @@ import time
 import threading
 from typing import Dict, List, Tuple
 import urllib.parse
-from slack_sdk.web import WebClient
 from util import config
 from util.config import Config
 from util.utils import get_now_timestamp
@@ -14,14 +13,19 @@ STAT_DATE_FORMAT = "%a %d %b %Y"
 
 
 class YoutrackChecker(threading.Thread):
-    def __init__(self, client: WebClient, configuration: Config) -> None:
+    def __init__(self, configuration: Config, send_message_to_channel_cb) -> None:
         super().__init__()
-        self.client: WebClient = client
+        self.send_message_to_channel_cb = send_message_to_channel_cb
         self.config: Config = configuration
         self.youtrack: Youtrack = Youtrack(
             base_url=configuration.configuration["youtrack"]["base_url"],
             authorization_header=configuration.configuration["youtrack"]["authorization_header"],
-            api_endpoint=configuration.configuration["youtrack"]["api_endpoint"])
+            api_endpoint=configuration.configuration["youtrack"]["api_endpoint"],
+            max_issues=int(
+                configuration.configuration["youtrack"]["max_issues"]),
+            all_issue_fields=configuration.configuration["youtrack"]["all_issue_fields"],
+            issue_id_field=configuration.configuration["youtrack"]["issue_id_field"]
+        )
 
     def run(self):
         while True:
@@ -77,13 +81,13 @@ class YoutrackChecker(threading.Thread):
                    "eg: weekly friday 14:30"
                    f"Exception: {str(exception)}")
 
-            self.client.chat_postMessage(
-                channel=channel_name, text=msg)
+            self.send_message_to_channel_cb(
+                channel=channel_name, message=msg)
 
     def _digest(self, channel_name: str):
         msg = self.get_digest(channel_name)
-        self.client.chat_postMessage(
-            channel=channel_name, text=msg)
+        self.send_message_to_channel_cb(
+            channel=channel_name, message=msg)
 
     def _tracking(self, channel_name: str):
         last_check: str = self.config.configuration["channels"][channel_name+".lastcheck"]
@@ -91,15 +95,15 @@ class YoutrackChecker(threading.Thread):
         query: str = f"""{self.config.configuration["channels"][channel_name]} created: {last_check} .. {now}"""
         for issue in self.youtrack.get_issues(query):
             new_issue_msg = self._get_issue_markdown(issue)
-            self.client.chat_postMessage(
-                channel=channel_name, text=new_issue_msg)
+            self.send_message_to_channel_cb(
+                channel=channel_name, message=new_issue_msg)
         self.config.configuration["channels"][channel_name +
                                               ".lastcheck"] = now
 
     def _get_issue_markdown(self, issue: dict, from_visible=True, creation_date_visible=False):
         new_issue_msg: str = ""
         if creation_date_visible:
-            new_issue_msg = f"""[{datetime.fromtimestamp(issue["created"]/1000).strftime(STAT_DATE_FORMAT)}] - """
+            new_issue_msg = f"""`{datetime.fromtimestamp(issue["created"]/1000).strftime(STAT_DATE_FORMAT)}` - """
 
         new_issue_msg += f"""<{self.youtrack.base_url}/issue/{issue["idReadable"]}|{issue["idReadable"]}> - {issue["summary"]}"""
         for tag in issue.get("tags", []):
@@ -120,8 +124,8 @@ class YoutrackChecker(threading.Thread):
         beginning, end = self.get_beginning_end_from_frequency(frequency)
 
         msg = self.get_stats(channel_name, f"{beginning} .. {end}")
-        self.client.chat_postMessage(
-            channel=channel_name, text=msg)
+        self.send_message_to_channel_cb(
+            channel=channel_name, message=msg)
 
     def get_beginning_end_from_frequency(self, frequency) -> Tuple[str, str]:
         beginning: str = ""
@@ -150,7 +154,7 @@ class YoutrackChecker(threading.Thread):
     def get_digest(self, channel_name: str) -> str:
         msg: str = "No ticket!"
         issues = self.youtrack.get_issues(
-            f"""{self.config.configuration["channels"][channel_name]}""")
+            f"""#Unresolved {self.config.configuration["channels"][channel_name]}""")
         if len(issues) > 0:
             msg = "Digest:\n"
             for issue in issues:

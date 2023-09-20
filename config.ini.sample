@@ -3,6 +3,10 @@ authorization_header = Bearer perm:xxxxx
 base_url = 
 api_endpoint = 
 
+max_issues = 100000
+all_issue_fields = id,idReadable,created,updated,resolved,reporter(email),updater(email),commentsCount,tags(name),customFields($type,id,projectCustomField($type,id,field($type,id,name)),value($type,name,minutes,presentation)),summary,description
+issue_id_field = id
+
 [slack]
 bot_token = xoxb-xxx
 app_token = xapp-xxx
