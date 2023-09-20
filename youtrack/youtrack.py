@@ -31,4 +31,4 @@ class Youtrack:
                                 headers=self.headers,
                                 timeout=REQUEST_TIMEOUT_SECS)
         issues = json.loads(response.content)
-        return sorted(issues, key=lambda x: x["created"])
+        return sorted(issues, key=lambda x: x.get("created",""))

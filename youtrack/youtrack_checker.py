@@ -82,12 +82,12 @@ class YoutrackChecker(threading.Thread):
                    f"Exception: {str(exception)}")
 
             self.send_message_to_channel_cb(
-                channel=channel_name, message=msg)
+                channel_name=channel_name, message=msg)
 
     def _digest(self, channel_name: str):
         msg = self.get_digest(channel_name)
         self.send_message_to_channel_cb(
-            channel=channel_name, message=msg)
+            channel_name=channel_name, message=msg)
 
     def _tracking(self, channel_name: str):
         last_check: str = self.config.configuration["channels"][channel_name+".lastcheck"]
@@ -96,7 +96,7 @@ class YoutrackChecker(threading.Thread):
         for issue in self.youtrack.get_issues(query):
             new_issue_msg = self._get_issue_markdown(issue)
             self.send_message_to_channel_cb(
-                channel=channel_name, message=new_issue_msg)
+                channel_name=channel_name, message=new_issue_msg)
         self.config.configuration["channels"][channel_name +
                                               ".lastcheck"] = now
 
@@ -125,7 +125,7 @@ class YoutrackChecker(threading.Thread):
 
         msg = self.get_stats(channel_name, f"{beginning} .. {end}")
         self.send_message_to_channel_cb(
-            channel=channel_name, message=msg)
+            channel_name=channel_name, message=msg)
 
     def get_beginning_end_from_frequency(self, frequency) -> Tuple[str, str]:
         beginning: str = ""

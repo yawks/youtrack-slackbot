@@ -61,7 +61,7 @@ def on_message(payload):
             case "!digest":
                 msg = _digest(channel_name)
             case _:
-                msg = get_help()
+                msg = _help()
         configuration.save_config()
         send_message_to_channel(channel_name, msg)
 
@@ -144,6 +144,20 @@ def _digest(channel_name: str) -> str:
     return youtrack.get_digest(channel_name)
 
 
+def _help():
+    return """Youtrack bot commands:
+ - set_query [youtrack query]: define a youtrack query for this channel. This query will be polled to check new incoming tickets.
+ - show_query: display the previously defined query
+ - del_query: delete the query
+ - stats [youtrack period]: display number of created tickets for given youtrack period (eg: Today, 2023-09-12 .. 2023-09-14, ...)
+ - digest: display the list of issues for the query
+ - enable [module: tracking|stats] [frequency: polling|daily|weekly] (optional: time)
+   eg:
+       `!enable tracking polling`
+       `!enable stats weekly friday 16:00` (24h format)
+"""
+
+
 def send_message_to_channel(channel_name: str, message: str):
     for chunk in split_string(message, SLACK_MAX_MESSAGE_SIZE):
         blocks = []
@@ -159,20 +173,6 @@ def send_message_to_channel(channel_name: str, message: str):
         app.client.chat_postMessage(channel=channel_name,
                                     text="digest",
                                     blocks=blocks)
-
-
-def get_help():
-    return """Youtrack bot commands:
- - set_query [youtrack query]: define a youtrack query for this channel. This query will be polled to check new incoming tickets.
- - show_query: display the previously defined query
- - del_query: delete the query
- - stats [youtrack period]: display number of created tickets for given youtrack period (eg: Today, 2023-09-12 .. 2023-09-14, ...)
- - digest: display the list of issues for the query
- - enable [module: tracking|stats] [frequency: polling|daily|weekly] (optional: time)
-   eg:
-       `!enable tracking polling`
-       `!enable stats weekly friday 16:00` (24h format)
-"""
 
 
 if __name__ == "__main__":
