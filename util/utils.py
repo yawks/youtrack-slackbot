@@ -30,7 +30,11 @@ def get_args(command: str) -> List[str]:
 
 
 def get_now_timestamp() -> str:
-    return datetime.now().strftime('%Y-%m-%dT%H:%M')
+    return datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+def get_today_timestamp() -> str:
+    now = datetime.now()
+    return datetime(now.year, now.month, now.day).strftime("%Y-%m-%dT%H:%M")
 
 
 def split_string(string, max_characters):

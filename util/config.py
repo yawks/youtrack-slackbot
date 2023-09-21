@@ -1,15 +1,18 @@
 from datetime import datetime
 import configparser
-from typing import List
+from typing import List, Tuple
 
-CONFIG_FILE_NAME = "config.ini"
+CONFIG_FILE_NAME = "config/config.ini"
+
+CHANNEL_NAME_ENTRY = "name"
+QUERY_ENTRY = "query"
 
 MODULE_TRACKING = "tracking"
 MODULE_STATS = "stats"
 MODULE_DIGEST = "digest"
 MODULES = [MODULE_TRACKING, MODULE_STATS, MODULE_DIGEST]
 
-TRACKING_LASTCHECK = "lastcheck"
+POLLING_LASTCHECK = "lastcheck"
 
 FREQUENCY_POLLING = "polling"
 FREQUENCY_DAILY = "daily"
@@ -27,22 +30,55 @@ class Config:
 
     def get_last_check_for_channel(self, channel_name: str) -> datetime:
         return datetime.strptime(
-            self.configuration['channels'][channel_name+"."+TRACKING_LASTCHECK], "%Y-%m-%dT%H:%M")
+            self.configuration['channels'][channel_name+"."+POLLING_LASTCHECK], "%Y-%m-%dT%H:%M")
 
-    def get_channel_names(self) -> List[str]:
-        channel_names: List[str] = []
+    def get_channel_entries(self) -> List[Tuple[str, str]]:
+        channel_names: List[Tuple[str,str]] = []
         for entry in self.configuration["channels"]:
-            if not entry.endswith("." + TRACKING_LASTCHECK) and entry not in channel_names:
-                appendable = True
-                for module in MODULES:
-                    if entry.endswith("." + module):
-                        appendable = False
-                        break
-                if appendable:
-                    channel_names.append(entry)
+            if entry.endswith("." + CHANNEL_NAME_ENTRY):
+                channel_names.append((entry[:-len(CHANNEL_NAME_ENTRY)-1], self.configuration["channels"][entry]))
 
         return channel_names
 
     def save_config(self):
         with open(CONFIG_FILE_NAME, "w", encoding="utf-8") as configfile:
             self.configuration.write(configfile)
+    
+    def has_channel(self, channel_name:str) -> bool:
+        return channel_name.lower() + "." + CHANNEL_NAME_ENTRY in self.configuration["channels"]
+    
+    def get_module_value_for_channel(self, channel_name:str, module:str) -> str:
+        value: str = ""
+        entry: str = channel_name.lower()
+        if self.has_channel(channel_name) and module in entry + "." + module in self.configuration["channels"]:
+            value = self.configuration["channels"][entry + "." + module]
+
+        return value
+    
+    def set_module_value_for_channel(self, channel_name:str, module:str, value:str):
+        entry: str = channel_name.lower()
+        self.configuration["channels"][entry + "." + module] = value
+
+    def delete_channel(self, channel_name: str) -> bool:
+        deleted = False
+        entry: str = channel_name.lower()
+        if entry in self.configuration:
+            deleted = True
+            def del_entry(suffix:str):
+                full_entry = entry + "." + suffix
+                if full_entry in self.configuration["channels"]:
+                    del self.configuration["channels"][full_entry]
+            
+            for module in MODULES:
+                del_entry(module)
+            del_entry(POLLING_LASTCHECK)
+            del_entry(CHANNEL_NAME_ENTRY)
+            del_entry(QUERY_ENTRY)
+            
+        
+        return deleted
+
+    def delete_module_for_channel(self, channel_name: str, module: str):
+        entry: str = channel_name.lower() + "." + module
+        if entry in self.configuration["channels"]:
+            del self.configuration["channels"][entry]

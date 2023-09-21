@@ -31,4 +31,6 @@ class Youtrack:
                                 headers=self.headers,
                                 timeout=REQUEST_TIMEOUT_SECS)
         issues = json.loads(response.content)
+        if "error" in issues:
+            raise Exception(f"""{issues.get("error")}: {issues.get("error_description", "")}\n{issues.get("error_developer_message", "")}""")
         return sorted(issues, key=lambda x: x.get("created",""))

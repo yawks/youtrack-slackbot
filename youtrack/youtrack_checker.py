@@ -8,7 +8,7 @@ from util.config import Config
 from util.utils import get_now_timestamp
 from youtrack.youtrack import Youtrack
 
-POLLING_INTERVAL = 120  # in secs
+POLLING_INTERVAL = 60  # in secs
 STAT_DATE_FORMAT = "%a %d %b %Y"
 
 
@@ -29,11 +29,10 @@ class YoutrackChecker(threading.Thread):
 
     def run(self):
         while True:
-            for channel_name in self.config.get_channel_names():
+            for entry, channel_name in self.config.get_channel_entries():
                 for module in config.MODULES:
-                    if f"{channel_name}.{module}" in self.config.configuration["channels"]:
-                        frequency_config = self.config.configuration[
-                            "channels"][f"{channel_name}.{module}"]
+                    if self.config.get_module_value_for_channel(channel_name, module) != "":
+                        frequency_config = self.config.get_module_value_for_channel(channel_name, module)
                         frequency = frequency_config.split(" ")[0]
                         match frequency:
                             case config.FREQUENCY_POLLING:
@@ -90,15 +89,14 @@ class YoutrackChecker(threading.Thread):
             channel_name=channel_name, message=msg)
 
     def _tracking(self, channel_name: str):
-        last_check: str = self.config.configuration["channels"][channel_name+".lastcheck"]
+        last_check: str = self.config.get_module_value_for_channel(channel_name, config.POLLING_LASTCHECK)
         now: str = get_now_timestamp()
-        query: str = f"""{self.config.configuration["channels"][channel_name]} created: {last_check} .. {now}"""
+        query: str = f"""{self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)} created: {last_check} .. {now}"""
         for issue in self.youtrack.get_issues(query):
             new_issue_msg = self._get_issue_markdown(issue)
             self.send_message_to_channel_cb(
                 channel_name=channel_name, message=new_issue_msg)
-        self.config.configuration["channels"][channel_name +
-                                              ".lastcheck"] = now
+        self.config.set_module_value_for_channel(channel_name, config.POLLING_LASTCHECK, now)
 
     def _get_issue_markdown(self, issue: dict, from_visible=True, creation_date_visible=False):
         new_issue_msg: str = ""
@@ -153,41 +151,48 @@ class YoutrackChecker(threading.Thread):
 
     def get_digest(self, channel_name: str) -> str:
         msg: str = "No ticket!"
-        issues = self.youtrack.get_issues(
-            f"""#Unresolved {self.config.configuration["channels"][channel_name]}""")
-        if len(issues) > 0:
-            msg = "Digest:\n"
-            for issue in issues:
-                msg += f"\n - {self._get_issue_markdown(issue, creation_date_visible=True, from_visible=False)}"
+        try:
+            issues = self.youtrack.get_issues(
+                f"""#Unresolved {self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)}""")
+            if len(issues) > 0:
+                msg = "Digest:\n"
+                for issue in issues:
+                    msg += f"\n - {self._get_issue_markdown(issue, creation_date_visible=True, from_visible=False)}"
+        except Exception as exception:
+            msg = str(exception)
 
         return msg
 
     def get_stats(self, channel_name: str, period: str) -> str:
-        all_time_unresolved_query: str = f"""#Unresolved {self.config.configuration["channels"][channel_name]}"""
-        all_time_unresolved_issues: List[dict] = self.youtrack.get_issues(
-            all_time_unresolved_query, only_issue_ids=True)
+        try:
+            all_time_unresolved_query: str = f"""#Unresolved {self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)}"""
+            all_time_unresolved_issues: List[dict] = self.youtrack.get_issues(
+                all_time_unresolved_query, only_issue_ids=True)
 
-        base_query: str = f"""{self.config.configuration["channels"][channel_name]} created: {period}"""
-        unresolved_query: str = f"#Unresolved {base_query}"
-        unresolved_issues: List[dict] = self.youtrack.get_issues(
-            unresolved_query)
+            base_query: str = f"""{self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)} created: {period}"""
+            unresolved_query: str = f"#Unresolved {base_query}"
+            unresolved_issues: List[dict] = self.youtrack.get_issues(
+                unresolved_query)
 
-        ticket_count_by_tag_msg = self._get_ticket_count_by_tag(
-            unresolved_issues)
+            ticket_count_by_tag_msg = self._get_ticket_count_by_tag(
+                unresolved_issues)
 
-        resolved_query: str = f"#Resolved {base_query}"
-        resolved_issues: List[dict] = self.youtrack.get_issues(resolved_query)
+            resolved_query: str = f"#Resolved {base_query}"
+            resolved_issues: List[dict] = self.youtrack.get_issues(resolved_query)
 
-        resolved_other_issues_query: str = f"""#Resolved {self.config.configuration["channels"][channel_name]} resolved date: {period}"""
-        resolved_other_issues: List[dict] = self.youtrack.get_issues(
-            (resolved_other_issues_query))
+            resolved_other_issues_query: str = f"""#Resolved {self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)} resolved date: {period}"""
+            resolved_other_issues: List[dict] = self.youtrack.get_issues(
+                (resolved_other_issues_query))
 
-        msg: str = (f"Stats for period _{period}_:\n"
-                    f""" 🛎️ {self._get_markdown_query_link(base_query, f"{len(unresolved_issues)+len(resolved_issues)} tickets")} have been created.\n"""
-                    f""" 🏗️ {self._get_markdown_query_link(unresolved_query, f"{len(unresolved_issues)} tickets")} are still opened.{ticket_count_by_tag_msg}\n"""
-                    f""" ✅ {self._get_markdown_query_link(resolved_query, f"{len(resolved_issues)} tickets")} among created have been closed + {self._get_markdown_query_link(resolved_other_issues_query, f"{len(resolved_other_issues)} tickets")} from previous creation period."""
-                    f"""\n 🧮 {self._get_markdown_query_link(all_time_unresolved_query, f"{len(all_time_unresolved_issues)}")} all time unresolved tickets."""
-                    )
+            msg: str = (f"Stats for period _{period}_:\n"
+                        f""" 🛎️ {self._get_markdown_query_link(base_query, f"{len(unresolved_issues)+len(resolved_issues)} tickets")} have been created.\n"""
+                        f""" 🏗️ {self._get_markdown_query_link(unresolved_query, f"{len(unresolved_issues)} tickets")} are still opened.{ticket_count_by_tag_msg}\n"""
+                        f""" ✅ {self._get_markdown_query_link(resolved_query, f"{len(resolved_issues)} tickets")} among created have been closed + {self._get_markdown_query_link(resolved_other_issues_query, f"{len(resolved_other_issues)} tickets")} from previous creation period."""
+                        f"""\n 🧮 {self._get_markdown_query_link(all_time_unresolved_query, f"{len(all_time_unresolved_issues)}")} all time unresolved tickets."""
+                        )
+        except Exception as exception:
+            msg = str(exception)
+        
         return msg
 
     def _get_ticket_count_by_tag(self, issues: List[dict]) -> str:

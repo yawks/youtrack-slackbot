@@ -5,7 +5,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt.adapter.flask import SlackRequestHandler
 from util import config
 from util.config import Config
-from util.utils import split_string, get_args, get_now_timestamp
+from util.utils import split_string, get_args, get_today_timestamp
 from youtrack.youtrack_checker import YoutrackChecker
 
 MSG_NO_QUERY_SET = "No query defined for this channel, first set one with `!set_query` command"
@@ -36,20 +36,17 @@ def on_message(payload):
             case "!set_query":
                 query = " ".join(args[1:])
                 msg = "A query already exists for this channel, delete it first."
-                if channel_name not in configuration.configuration["channels"]:
-                    configuration.configuration["channels"][channel_name] = query
-                    configuration.configuration["channels"][channel_name +
-                                                            "."+config.TRACKING_LASTCHECK] = get_now_timestamp()
+                if not configuration.has_channel(channel_name):
+                    configuration.set_module_value_for_channel(channel_name, config.CHANNEL_NAME_ENTRY, channel_name)
+                    configuration.set_module_value_for_channel(channel_name, config.QUERY_ENTRY, query)
+                    configuration.set_module_value_for_channel(channel_name, config.POLLING_LASTCHECK, get_today_timestamp())
                     msg = "Query set"
             case "!del_query":
-                if channel_name in configuration.configuration["channels"]:
-                    del configuration.configuration["channels"][channel_name]
-                    del configuration.configuration["channels"][channel_name +
-                                                                "."+config.TRACKING_LASTCHECK]
+                if configuration.delete_channel(channel_name):
                     msg = "Query deleted"
             case "!show_query":
-                if channel_name in configuration.configuration["channels"]:
-                    msg = configuration.configuration["channels"][channel_name]
+                if configuration.has_channel(channel_name):
+                    configuration.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)
             case "!enable":
                 msg = _enable_module(args, channel_name)
             case "!disable":
@@ -68,7 +65,7 @@ def on_message(payload):
 
 def _enable_module(args: List[str], channel_name: str) -> str:
     msg = MSG_NO_QUERY_SET
-    if channel_name in configuration.configuration["channels"]:
+    if configuration.has_channel(channel_name):
         msg = ("You must specify which module you want to enable: tracking, stats"
                "and in which frequence: polling, daily + time, weekly + day + time\n"
                "eg:\n"
@@ -87,8 +84,7 @@ def _enable_module(args: List[str], channel_name: str) -> str:
                     msg = ("For _weekly_ frequency you should set the day and the time\n"
                            "eg: `!enable stats weekly monday 13:50` (24 format)")
                 else:
-                    configuration.configuration["channels"][f"{channel_name}.{module}"] = " ".join(
-                        args[2:])
+                    configuration.set_module_value_for_channel(channel_name, module, " ".join(args[2:]))
                     configuration.save_config()
                     msg = f"""Module "{module}" enabled"""
 
@@ -97,14 +93,14 @@ def _enable_module(args: List[str], channel_name: str) -> str:
 
 def _disable_module(args: List[str], channel_name: str) -> str:
     msg = MSG_NO_QUERY_SET
-    if channel_name in configuration.configuration["channels"]:
+    if configuration.has_channel(channel_name):
         msg = "You must specify which module you want to disable: tracking, digest, stats"
         if len(args) > 1:
             module = args[1]
             if module in config.MODULES:
                 msg = f"""Module "{module}" not enabled for "{channel_name}" """
-                if f"{channel_name}.{module}" in configuration.configuration["channels"]:
-                    del configuration.configuration["channels"][f"{channel_name}.{module}"]
+                if configuration.get_module_value_for_channel(channel_name, module) != "":
+                    configuration.delete_module_for_channel(channel_name, module)
                     configuration.save_config()
                     msg = f"""Module "{module}" disabled"""
 
@@ -113,20 +109,20 @@ def _disable_module(args: List[str], channel_name: str) -> str:
 
 def _config(channel_name: str) -> str:
     msg = "No configuration set for this channel"
-    if channel_name in configuration.configuration["channels"]:
-        channels_config = configuration.configuration["channels"]
-        msg = f"""Youtrack config for _{channel_name}_:
-- youtrack query: `{channels_config[channel_name]}`"""
+    if configuration.has_channel(channel_name):
+        msg = f"""Youtrack config for _{configuration.get_module_value_for_channel(channel_name, config.CHANNEL_NAME_ENTRY)}_:
+- youtrack query: `{configuration.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)}`"""
 
         def get_optional_value(suffix: str) -> str:
             value: str = ""
-            if channels_config.get(channel_name + "." + suffix, "") != "":
+            if configuration.get_module_value_for_channel(channel_name, suffix) != "":
                 value = f"""
-- {suffix} {channels_config[channel_name+ "." +suffix]}"""
+- {suffix} {configuration.get_module_value_for_channel(channel_name, suffix)}"""
             return value
 
         msg += get_optional_value(config.MODULE_TRACKING) \
-            + get_optional_value(config.TRACKING_LASTCHECK) \
+            + get_optional_value(config.POLLING_LASTCHECK) \
+            + get_optional_value(config.MODULE_DIGEST) \
             + get_optional_value(config.MODULE_STATS)
 
     return msg

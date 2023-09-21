@@ -28,5 +28,5 @@ First set a youtrack query using `!set_query` command,
 eg: `!set_query #Unresolved`
 
 You can then display stats or digest, and you can also get them in recurring way enabling modules:
-`!enable tracking polling` will poll every 2 minutes youtrack with your query and send a message for new created tickets.
+`!enable tracking polling` will poll every minute youtrack with your query and send a message for new created tickets.
 `!enable stats daily 9:00` will display stats every day at 9am.
