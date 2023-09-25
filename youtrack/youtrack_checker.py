@@ -91,12 +91,13 @@ class YoutrackChecker(threading.Thread):
     def _tracking(self, channel_name: str):
         last_check: str = self.config.get_module_value_for_channel(channel_name, config.POLLING_LASTCHECK)
         now: str = get_today_timestamp()
+        last_poll: str = get_today_timestamp(1) #+1 sec to avoid checking the same second twice
         query: str = f"""{self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)} created: {last_check} .. {now}"""
         for issue in self.youtrack.get_issues(query):
             new_issue_msg = self._get_issue_markdown(issue)
             self.send_message_to_channel_cb(
                 channel_name=channel_name, message=new_issue_msg)
-        self.config.set_module_value_for_channel(channel_name, config.POLLING_LASTCHECK, now)
+        self.config.set_module_value_for_channel(channel_name, config.POLLING_LASTCHECK, last_poll)
 
     def _get_issue_markdown(self, issue: dict, from_visible=True, creation_date_visible=False):
         new_issue_msg: str = ""

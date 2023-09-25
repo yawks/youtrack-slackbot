@@ -1,7 +1,7 @@
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
 
-STAT_YOUTRACK_DATE_FORMAT = "%Y-%m-%dT%H:%M"
+STAT_YOUTRACK_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
 def get_args(command: str) -> List[str]:
@@ -31,8 +31,10 @@ def get_args(command: str) -> List[str]:
     return args
 
 
-def get_today_timestamp() -> str:
-    return datetime.now().strftime(STAT_YOUTRACK_DATE_FORMAT)
+def get_today_timestamp(seconds_delta:int = 0) -> str:
+    now = datetime.now() + timedelta(seconds=seconds_delta)
+    return now.strftime(STAT_YOUTRACK_DATE_FORMAT)
+
 
 
 def split_string(string, max_characters):
