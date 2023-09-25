@@ -1,6 +1,6 @@
 FROM python:3.10-slim-buster
 
-WORKDIR /python-docker
+WORKDIR /
 
 ENV TZ=Europe/Paris
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
