@@ -2,6 +2,8 @@ from datetime import datetime
 import configparser
 from typing import List, Tuple
 
+from util.utils import STAT_YOUTRACK_DATE_FORMAT
+
 CONFIG_FILE_NAME = "config/config.ini"
 
 CHANNEL_NAME_ENTRY = "name"
@@ -30,7 +32,7 @@ class Config:
 
     def get_last_check_for_channel(self, channel_name: str) -> datetime:
         return datetime.strptime(
-            self.configuration['channels'][channel_name+"."+POLLING_LASTCHECK], "%Y-%m-%dT%H:%M")
+            self.configuration['channels'][channel_name+"."+POLLING_LASTCHECK], STAT_YOUTRACK_DATE_FORMAT)
 
     def get_channel_entries(self) -> List[Tuple[str, str]]:
         channel_names: List[Tuple[str,str]] = []

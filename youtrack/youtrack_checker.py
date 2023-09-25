@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple
 import urllib.parse
 from util import config
 from util.config import Config
-from util.utils import get_now_timestamp
+from util.utils import STAT_YOUTRACK_DATE_FORMAT, get_today_timestamp
 from youtrack.youtrack import Youtrack
 
 POLLING_INTERVAL = 60  # in secs
@@ -90,7 +90,7 @@ class YoutrackChecker(threading.Thread):
 
     def _tracking(self, channel_name: str):
         last_check: str = self.config.get_module_value_for_channel(channel_name, config.POLLING_LASTCHECK)
-        now: str = get_now_timestamp()
+        now: str = get_today_timestamp()
         query: str = f"""{self.config.get_module_value_for_channel(channel_name, config.QUERY_ENTRY)} created: {last_check} .. {now}"""
         for issue in self.youtrack.get_issues(query):
             new_issue_msg = self._get_issue_markdown(issue)
@@ -117,37 +117,26 @@ class YoutrackChecker(threading.Thread):
         return f"<{self.youtrack.base_url}/issues?u=1&q={urllib.parse.quote(query)}|{url_label}>"
 
     def _stats(self, channel_name: str, frequency: str):
-        beginning: str = ""
-        end: str = ""
-        beginning, end = self.get_beginning_end_from_frequency(frequency)
+        period = self.get_beginning_end_from_frequency(frequency)
 
-        msg = self.get_stats(channel_name, f"{beginning} .. {end}")
+        msg = self.get_stats(channel_name, period)
         self.send_message_to_channel_cb(
             channel_name=channel_name, message=msg)
 
-    def get_beginning_end_from_frequency(self, frequency) -> Tuple[str, str]:
-        beginning: str = ""
-        end: str = ""
+    def get_beginning_end_from_frequency(self, frequency) -> str:
+        period: str = ""
         match frequency:
             case config.FREQUENCY_POLLING:
                 beginning = (
-                    datetime.now() - timedelta(seconds=POLLING_INTERVAL)).strftime(STAT_DATE_FORMAT)
-                end = datetime.now().strftime(STAT_DATE_FORMAT)
+                    datetime.now() - timedelta(seconds=POLLING_INTERVAL)).strftime(STAT_YOUTRACK_DATE_FORMAT)
+                end = datetime.now().strftime(STAT_YOUTRACK_DATE_FORMAT)
+                period = f"{beginning} {end}"
             case config.FREQUENCY_DAILY:
-                beginning_dt = (datetime.now() - timedelta(days=1))
-                beginning = datetime(
-                    beginning_dt.year, beginning_dt.month, beginning_dt.day).strftime(STAT_DATE_FORMAT)
-                end = datetime(
-                    beginning_dt.year, beginning_dt.month, beginning_dt.day, 23, 59, 59, 999999).strftime(STAT_DATE_FORMAT)
+                period = "{Yesterday}"
             case config.FREQUENCY_WEEKLY:
-                beginning_dt = (datetime.now() - timedelta(days=7))
-                beginning = datetime(
-                    beginning_dt.year, beginning_dt.month, beginning_dt.day).strftime(STAT_DATE_FORMAT)
-                end_dt = (datetime.now() - timedelta(days=1))
-                end = datetime(
-                    end_dt.year, end_dt.month, end_dt.day, 23, 59, 59, 999999).strftime(STAT_DATE_FORMAT)
+                period = "{last week}"
 
-        return beginning, end
+        return period
 
     def get_digest(self, channel_name: str) -> str:
         msg: str = "No ticket!"
