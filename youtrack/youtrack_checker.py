@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import time
 import threading
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import urllib.parse
 from util import config
 from util.config import Config
@@ -29,24 +29,28 @@ class YoutrackChecker(threading.Thread):
 
     def run(self):
         while True:
-            for entry, channel_name in self.config.get_channel_entries():
+            for _, channel_name in self.config.get_channel_entries():
                 for module in config.MODULES:
                     if self.config.get_module_value_for_channel(channel_name, module) != "":
                         frequency_config = self.config.get_module_value_for_channel(channel_name, module)
                         frequency = frequency_config.split(" ")[0]
-                        match frequency:
-                            case config.FREQUENCY_POLLING:
-                                self._polling(module, frequency, channel_name)
-                            case config.FREQUENCY_DAILY:
-                                self._daily(module, frequency,
-                                            channel_name, " ".join(frequency_config.split(" ")[1:]))
-                            case config.FREQUENCY_WEEKLY:
-                                self._weekly(module, frequency,
-                                             channel_name, " ".join(frequency_config.split(" ")[1:]))
-                            case _:
-                                print(
-                                    f"Unkown frequency {frequency} for module {module} in {channel_name}")
-            self.config.save_config()
+                        try:
+                            match frequency:
+                                case config.FREQUENCY_POLLING:
+                                    self._polling(module, frequency, channel_name)
+                                case config.FREQUENCY_DAILY:
+                                    self._daily(module, frequency,
+                                                channel_name, " ".join(frequency_config.split(" ")[1:]))
+                                case config.FREQUENCY_WEEKLY:
+                                    self._weekly(module, frequency,
+                                                channel_name, " ".join(frequency_config.split(" ")[1:]))
+                                case _:
+                                    print(
+                                        f"Unkown frequency {frequency} for module {module} in {channel_name}")
+                            self.config.save_config()
+                        except Exception as exception:
+                            print(f"Error processing module '{module}' for frequency '{frequency}' : {str(exception)}")
+
             time.sleep(POLLING_INTERVAL)
 
     def _execute_module(self, module: str, frequency: str, channel_name: str):

@@ -63,11 +63,11 @@ class Config:
 
     def delete_channel(self, channel_name: str) -> bool:
         deleted = False
-        entry: str = channel_name.lower()
-        if entry in self.configuration:
+        entry: str = channel_name.lower() + "." + CHANNEL_NAME_ENTRY
+        if entry in self.configuration["channels"]:
             deleted = True
             def del_entry(suffix:str):
-                full_entry = entry + "." + suffix
+                full_entry = channel_name.lower() + "." + suffix
                 if full_entry in self.configuration["channels"]:
                     del self.configuration["channels"][full_entry]
             

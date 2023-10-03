@@ -144,7 +144,7 @@ def _help():
     return """Youtrack bot commands:
  - set_query [youtrack query]: define a youtrack query for this channel. This query will be polled to check new incoming tickets.
  - show_query: display the previously defined query
- - del_query: delete the query
+ - del_query: delete the query and all channel related entries
  - stats [youtrack period]: display number of created tickets for given youtrack period (eg: Today, 2023-09-12 .. 2023-09-14, ...)
  - digest: display the list of issues for the query
  - enable [module: tracking|stats] [frequency: polling|daily|weekly] (optional: time)
