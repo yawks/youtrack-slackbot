@@ -16,6 +16,9 @@ Fill config.ini bearer for youtrack section and tokens + signing secret for slac
 # Run
 Either run youtrack-slackbot.py file or use Dockerfile to do so.
 
+$ docker build -t youtrack-slackbot
+$ docker run -d -v ./config:/config youtrack-slackbot
+
 Add the bot on every channel where you want to chat with:
 ![Alt text](image-1.png)
 
